@@ -50,7 +50,7 @@ var WebRouter = function()
 		tiptoe(
 			function render()
 			{
-				route.render(this);
+				route.render(request, this);
 			},
 			function compressIfNeeded(data)
 			{
@@ -102,9 +102,9 @@ var JSONRoute = function(_handler)
 {
 	this.handler = _handler;
 
-	JSONRoute.prototype.render = function(cb)
+	JSONRoute.prototype.render = function(request, cb)
 	{
-		return setImmediate(function() { cb(undefined, JSON.stringify(this.handler())); }.bind(this));
+		return setImmediate(function() { cb(undefined, JSON.stringify(this.handler(request))); }.bind(this));
 	};
 
 	JSONRoute.prototype.getContentType = function()
@@ -119,7 +119,7 @@ var DustRoute = function(_dustPath, _dustName, _dustData)
 	this.dustName = _dustName;
 	this.dustData = _dustData;
 
-	DustRoute.prototype.render = function(cb)
+	DustRoute.prototype.render = function(request, cb)
 	{
 		dustUtil.render(this.dustPath, this.dustName,  (typeof this.dustData==="function" ? this.dustData() : this.dustData), cb);
 	};
