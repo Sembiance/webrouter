@@ -3,14 +3,14 @@
 var base = require("xbase"),
 	tiptoe = require("tiptoe"),
 	http = require("http"),
-	path = require("path"),
 	url = require("url"),
 	zlib = require("zlib"),
 	dustUtil = require("xutil").dust;
 
-var WebRouter = function()
+var WebRouter = function(_options)
 {
 	this.routes = {};
+	this.options = _options || {};
 
 	WebRouter.prototype.requestHandler = function(request, response)
 	{
@@ -83,12 +83,12 @@ var WebRouter = function()
 
 	WebRouter.prototype.addDustRoute = function(paths, dustPath, dustName, dustData)
 	{
-		this.addRoute(paths, new DustRoute(dustPath, dustName, dustData));
+		this.addRoute(paths, new DustRoute(dustPath, dustName, dustData, this.options));
 	};
 
 	WebRouter.prototype.addJSONRoute = function(paths, handler)
 	{
-		this.addRoute(paths, new JSONRoute(handler));
+		this.addRoute(paths, new JSONRoute(handler, this.options));
 	};
 
 	WebRouter.prototype.listen = function(port, host)
@@ -98,9 +98,10 @@ var WebRouter = function()
 	};
 };
 
-var JSONRoute = function(_handler)
+var JSONRoute = function(_handler, _options)
 {
 	this.handler = _handler;
+	this.options = _options;
 
 	JSONRoute.prototype.render = function(request, cb)
 	{
@@ -113,15 +114,16 @@ var JSONRoute = function(_handler)
 	};
 };
 
-var DustRoute = function(_dustPath, _dustName, _dustData)
+var DustRoute = function(_dustPath, _dustName, _dustData, _options)
 {
 	this.dustPath = _dustPath;
 	this.dustName = _dustName;
 	this.dustData = _dustData;
+	this.options = _options;
 
 	DustRoute.prototype.render = function(request, cb)
 	{
-		dustUtil.render(this.dustPath, this.dustName,  (typeof this.dustData==="function" ? this.dustData() : this.dustData), cb);
+		dustUtil.render(this.dustPath, this.dustName,  (typeof this.dustData==="function" ? this.dustData() : this.dustData), this.options, cb);
 	};
 
 	DustRoute.prototype.getContentType = function()
@@ -130,7 +132,7 @@ var DustRoute = function(_dustPath, _dustName, _dustData)
 	};
 };
 
-exports.createRouter = function()
+exports.createRouter = function(options)
 {
-	return new WebRouter();
+	return new WebRouter(options);
 };
