@@ -14,7 +14,7 @@ var WebRouter = function(_options)
 
 	WebRouter.prototype.requestHandler = function(request, response)
 	{
-		if(request.method!=="GET")
+		if(request.method!=="GET" && request.method!=="POST")
 		{
 			response.writeHead(501, { "Content-Type" : "text/plain" });
 			return response.end("Method [" + request.method + "] is not supported.");
@@ -47,30 +47,44 @@ var WebRouter = function(_options)
 		var route = this.routes[target.pathname];
 		responseHeaders["Content-Type"] = route.getContentType();
 
-		tiptoe(
-			function render()
-			{
-				route.render(request, this);
-			},
-			function compressIfNeeded(data)
-			{
-				if(gzip)
-					zlib.gzip(data, this);
-				else
-					this(undefined, data);
-			},
-			function issueResponse(err, data)
-			{
-				if(err)
-				{
-					response.writeHead(500, { "Content-Type" : "text/plain" });
-					return response.end(err.toString());
-				}
+		if(request.method==="POST")
+		{
+			var postData = "";
+			request.on("data", function(chunk) { postData += chunk; });
+			request.on("end", function() { request.postData = postData; setImmediate(finishRequest); });
+		}
+		else
+		{
+			setImmediate(finishRequest);
+		}
 
-				response.writeHead(200, responseHeaders);
-				response.end(data);
-			}
-		);
+		function finishRequest()
+		{
+			tiptoe(
+				function render()
+				{
+					route.render(request, this);
+				},
+				function compressIfNeeded(data)
+				{
+					if(gzip)
+						zlib.gzip(data, this);
+					else
+						this(undefined, data);
+				},
+				function issueResponse(err, data)
+				{
+					if(err)
+					{
+						response.writeHead(500, { "Content-Type" : "text/plain" });
+						return response.end(err.toString());
+					}
+
+					response.writeHead(200, responseHeaders);
+					response.end(data);
+				}
+			);
+		}
 	};
 
 	WebRouter.prototype.addRoute = function(paths, route)
@@ -105,12 +119,12 @@ var JSONRoute = function(_handler, _options)
 
 	JSONRoute.prototype.render = function(request, cb)
 	{
-		return setImmediate(function() { cb(undefined, JSON.stringify(this.handler(request))); }.bind(this));
+		this.handler(request, function(err, responseJSON) { cb(err, JSON.stringify(responseJSON)); });
 	};
 
 	JSONRoute.prototype.getContentType = function()
 	{
-		return "text/plain;charset=utf-8";
+		return "application/json;charset=utf-8";
 	};
 };
 
