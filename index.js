@@ -76,6 +76,9 @@ var WebRouter = function(_options)
 				{
 					if(err)
 					{
+						if(err)
+							base.error(err);
+
 						response.writeHead(500, { "Content-Type" : "text/plain" });
 						return response.end(err.stack || err.toString());
 					}
