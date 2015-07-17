@@ -14,7 +14,7 @@ var WebRouter = function(_options)
 
 	WebRouter.prototype.requestHandler = function(request, response)
 	{
-		if(request.method!=="GET" && request.method!=="POST")
+		if(request.method!=="GET" && request.method!=="POST" && request.method!=="PUT")
 		{
 			response.writeHead(501, { "Content-Type" : "text/plain" });
 			return response.end("Method [" + request.method + "] is not supported.");
@@ -47,7 +47,7 @@ var WebRouter = function(_options)
 		var route = this.routes[target.pathname];
 		responseHeaders["Content-Type"] = route.getContentType();
 
-		if(request.method==="POST")
+		if(request.method==="POST" || request.method==="PUT")
 		{
 			var postData = "";
 			request.on("data", function(chunk) { postData += chunk; });
@@ -77,7 +77,7 @@ var WebRouter = function(_options)
 					if(err)
 					{
 						response.writeHead(500, { "Content-Type" : "text/plain" });
-						return response.end(err.toString());
+						return response.end(err.stack || err.toString());
 					}
 
 					response.writeHead(200, responseHeaders);
