@@ -111,6 +111,7 @@ var WebRouter = function(_options)
 	WebRouter.prototype.listen = function(port, host)
 	{
 		this.app = http.createServer(this.requestHandler.bind(this));
+		this.app.timeout = 0;
 		this.app.listen(port, host);
 	};
 };
