@@ -1,6 +1,6 @@
 "use strict";
 
-var base = require("xbase"),
+var base = require("@sembiance/xbase"),
 	webRouter = require("./index.js");
 
 var router = webRouter.createRouter();

@@ -1,11 +1,11 @@
 "use strict";
 
-var base = require("xbase"),
+var base = require("@sembiance/xbase"),
 	tiptoe = require("tiptoe"),
 	http = require("http"),
 	url = require("url"),
 	zlib = require("zlib"),
-	dustUtil = require("xutil").dust;
+	dustUtil = require("@sembiance/xutil").dust;
 
 var WebRouter = function(_options)
 {
