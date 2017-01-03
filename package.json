@@ -1,13 +1,12 @@
 {
-	"name"					: "webrouter",
-	"version"				: "0.2.1",
+	"name"					: "@sembiance/webrouter",
+	"version"				: "0.2.2",
 	"author"				: "Robert Schultz <robert@cosmicrealms.com>",
 	"description"			: "Simple module to serve up some HTTP requests",
-	"private"				: true,
 	"dependencies"			:
 	{
-		"xutil"			    : "git://github.com/Sembiance/xutil.git",
-		"tiptoe"			: "= 1.0.0",
-		"xbase"				: "git://github.com/Sembiance/xbase.git"
+		"@sembiance/xutil"	: ">=1.0.0",
+		"tiptoe"			: ">=1.0.0",
+		"@sembiance/xbase"	: ">=1.0.0"
 	}
 }
