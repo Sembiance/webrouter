@@ -4,28 +4,34 @@ var base = require("@sembiance/xbase"),
 	tiptoe = require("tiptoe"),
 	http = require("http"),
 	url = require("url"),
+	cookie = require("cookie"),
 	zlib = require("zlib"),
 	dustUtil = require("@sembiance/xutil").dust;
 
 var WebRouter = function(_options)
 {
-	this.routes = {};
+	this.routes = {GET:{},POST:{},PUT:{}};
 	this.options = _options || {};
 
 	WebRouter.prototype.requestHandler = function(request, response)
 	{
-		if(request.method!=="GET" && request.method!=="POST" && request.method!=="PUT")
+		var method = request.method.toUpperCase();
+		if(!this.routes.hasOwnProperty(method))
 		{
 			response.writeHead(501, { "Content-Type" : "text/plain" });
 			return response.end("Method [" + request.method + "] is not supported.");
 		}
 
 		var target = url.parse(request.url);
-		if(!this.routes.hasOwnProperty(target.pathname))
+		if(!this.routes[method].hasOwnProperty(target.pathname))
 		{
 			response.writeHead(404, { "Content-Type" : "text/plain" });
 			return response.end();
 		}
+
+		request.cookieData = {};
+		if(request.headers && request.headers.cookie)
+			request.cookieData = cookie.parse(request.headers.cookie);
 
 		var responseHeaders =
 		{
@@ -35,16 +41,7 @@ var WebRouter = function(_options)
 			"Expires"       : "Thu, 01 Jan 1970 00:00:01 GMT"
 		};
 
-		// Check to see if we allow gzip
-		var acceptEncoding = request.headers["accept-encoding"];
-		var gzip = false;
-		if(acceptEncoding && acceptEncoding.split(",").map(function(encoding) { return encoding.trim().toLowerCase(); }).contains("gzip"))
-			gzip = true;
-
-		if(gzip)
-			responseHeaders["Content-Encoding"] = "gzip";
-
-		var route = this.routes[target.pathname];
+		var route = this.routes[method][target.pathname];
 		responseHeaders["Content-Type"] = route.getContentType();
 
 		if(request.method==="POST" || request.method==="PUT")
@@ -65,20 +62,38 @@ var WebRouter = function(_options)
 				{
 					route.render(request, this);
 				},
-				function compressIfNeeded(data)
+				function compressIfNeeded(data, meta)
 				{
-					if(gzip)
+					if(meta)
+					{
+						if(meta.cookies)
+						{
+							if(!responseHeaders.hasOwnProperty("Set-Cookie"))
+								responseHeaders["Set-Cookie"] = [];
+							meta.cookies.forEach(function(c)
+							{
+								responseHeaders["Set-Cookie"].push(cookie.serialize(c.name, c.value, c));
+							});
+						}
+
+						// TODO: support meta.headers for adding/removing custom responseHeaders
+					}
+					
+					if(data && data.length>0 && request.headers["accept-encoding"] && request.headers["accept-encoding"].split(",").some(function(encoding) { return encoding.trim().toLowerCase()==="gzip"; }))
+					{
+						responseHeaders["Content-Encoding"] = "gzip";
 						zlib.gzip(data, this);
+					}
 					else
+					{
 						this(undefined, data);
+					}
 				},
 				function issueResponse(err, data)
 				{
 					if(err)
 					{
-						if(err)
-							base.error(err);
-
+						base.error(err);
 						response.writeHead(500, { "Content-Type" : "text/plain" });
 						return response.end(err.stack || err.toString());
 					}
@@ -90,29 +105,57 @@ var WebRouter = function(_options)
 		}
 	};
 
-	WebRouter.prototype.addRoute = function(paths, route)
+	WebRouter.prototype.addRoute = function(methods, paths, route)
 	{
 		Array.toArray(paths).forEach(function(path)
 		{
-			this.routes[path] = route;
+			Array.toArray(methods).forEach(function(method)
+			{
+				if(!this.routes.hasOwnProperty(method.toUpperCase()))
+					return;
+
+				this.routes[method.toUpperCase()][path] = route;
+			}.bind(this));
 		}.bind(this));
 	};
 
-	WebRouter.prototype.addDustRoute = function(paths, dustPath, dustName, dustData)
+	WebRouter.prototype.addDustRoute = function(methods, paths, dustPath, dustName, dustData)
 	{
-		this.addRoute(paths, new DustRoute(dustPath, dustName, dustData, this.options));
+		this.addRoute(methods, paths, new DustRoute(dustPath, dustName, dustData, this.options));
 	};
 
-	WebRouter.prototype.addJSONRoute = function(paths, handler)
+	WebRouter.prototype.addJSONRoute = function(methods, paths, handler)
 	{
-		this.addRoute(paths, new JSONRoute(handler, this.options));
+		this.addRoute(methods, paths, new JSONRoute(handler, this.options));
 	};
 
-	WebRouter.prototype.listen = function(port, host)
+	WebRouter.prototype.addTextRoute = function(methods, paths, handler)
 	{
-		this.app = http.createServer(this.requestHandler.bind(this));
-		this.app.timeout = 0;
-		this.app.listen(port, host);
+		this.addRoute(methods, paths, new TextRoute(handler, this.options));
+	};
+
+	WebRouter.prototype.listen = function(port, host, timeout)
+	{
+		this.server = http.createServer(this.requestHandler.bind(this));
+		if(typeof timeout!=="undefined")
+			this.server.timeout = timeout;
+		this.server.listen(port, host);
+	};
+};
+
+var TextRoute = function(_handler, _options)
+{
+	this.handler = _handler;
+	this.options = _options;
+
+	TextRoute.prototype.render = function(request, cb)
+	{
+		this.handler(request, cb);
+	};
+
+	TextRoute.prototype.getContentType = function()
+	{
+		return "text/plain;charset=utf-8";
 	};
 };
 
@@ -123,7 +166,7 @@ var JSONRoute = function(_handler, _options)
 
 	JSONRoute.prototype.render = function(request, cb)
 	{
-		this.handler(request, function(err, responseJSON) { cb(err, JSON.stringify(responseJSON)); });
+		this.handler(request, function(err, data, meta) { cb(err, JSON.stringify(data), meta); });
 	};
 
 	JSONRoute.prototype.getContentType = function()
