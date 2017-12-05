@@ -210,6 +210,7 @@ class WebRouter
 	listen(port, host, timeout)
 	{
 		this.server = http.createServer(this.requestHandler.bind(this));
+
 		if(typeof timeout!=="undefined")
 			this.server.timeout = timeout;
 		this.server.listen(port, host);
