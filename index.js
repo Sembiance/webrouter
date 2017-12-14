@@ -58,7 +58,22 @@ class DustRoute
 
 	render(request, cb)
 	{
-		dustUtil.render(this.dustPath, this.dustName, (typeof this.dustData==="function" ? this.dustData() : this.dustData), this.options, cb);
+		const self=this;
+
+		tiptoe(
+			function getDustData()
+			{
+				if(typeof self.dustData==="function")
+					self.dustData(this);
+				else
+					this(undefined, self.dustData);
+			},
+			function render(dustData)
+			{
+				dustUtil.render(self.dustPath, self.dustName, dustData, self.options, this);
+			},
+			cb
+		);
 	}
 
 	getContentType()
