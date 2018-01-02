@@ -135,8 +135,9 @@ class WebRouter
 					}
 					catch(err)
 					{
-						console.error("[%s] JSON postData parse error with: %s", target.pathname, postData);
+						console.error("%s: [%s] JSON postData parse error with data (%s)", (new Date()).toString(), target.pathname, postData);
 						console.error(err);
+						postData = {};
 					}
 				}
 
