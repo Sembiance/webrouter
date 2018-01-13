@@ -4,6 +4,7 @@ const base = require("@sembiance/xbase"),
 	tiptoe = require("tiptoe"),
 	http = require("http"),
 	url = require("url"),
+	util = require("util"),
 	cookie = require("cookie"),
 	zlib = require("zlib"),
 	dustUtil = require("@sembiance/xutil").dust;
@@ -64,7 +65,7 @@ class DustRoute
 			function getDustData()
 			{
 				if(typeof self.dustData==="function")
-					self.dustData(this);
+					self.dustData(this, request);
 				else
 					this(undefined, self.dustData);
 			},
@@ -135,8 +136,9 @@ class WebRouter
 					}
 					catch(err)
 					{
-						console.error("%s: [%s] JSON postData parse error with data (%s)", (new Date()).toString(), target.pathname, postData);
-						console.error(err);
+						if(this.options.errorHandler)
+							this.options.errorHandler(new Error(util.format("[%s] JSON postData parse error with data (%s)", target.pathname, postData)));
+
 						postData = {};
 					}
 				}
