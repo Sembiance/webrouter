@@ -136,7 +136,7 @@ class WebRouter
 					}
 					catch(err)
 					{
-						if(this.options.errorHandler)
+						if(this.options.errorHandler && postData && postData.length>0)
 							this.options.errorHandler(new Error(util.format("[%s] JSON postData parse error with data (%s)", target.pathname, postData)), request);
 
 						postData = {};
