@@ -4,9 +4,12 @@ const base = require("@sembiance/xbase"),
 	tiptoe = require("tiptoe"),
 	http = require("http"),
 	url = require("url"),
-	util = require("util"),
+	fs = require("fs"),
+	path = require("path"),
 	cookie = require("cookie"),
 	zlib = require("zlib"),
+	fileUtil = require("@sembiance/xutil").file,
+	formidable = require("formidable"),
 	dustUtil = require("@sembiance/xutil").dust;
 
 class TextRoute
@@ -17,9 +20,9 @@ class TextRoute
 		this.options = options;
 	}
 
-	render(request, cb)
+	render(request, fields, files, cb)
 	{
-		this.handler(request, cb);
+		this.handler(request, fields, files, cb);
 	}
 
 	getContentType()
@@ -36,14 +39,60 @@ class JSONRoute
 		this.options = options;
 	}
 
-	render(request, cb)
+	render(request, fields, files, cb)
 	{
-		this.handler(request, (err, data, meta) => cb(err, JSON.stringify(data), meta));
+		this.handler(request, fields, files, (err, data, meta) => cb(err, JSON.stringify(data), meta));
 	}
 
 	getContentType()
 	{
 		return "application/json;charset=utf-8";
+	}
+}
+
+class FileRoute
+{
+	constructor(handler, options)
+	{
+		this.handler = handler;
+		this.options = options;
+		this.contentType = "application/unknown";
+	}
+
+	render(request, fields, files, cb)
+	{
+		const self = this;
+
+		tiptoe(
+			function callHandler()
+			{
+				self.handler(request, fields, files, this);
+			},
+			function loadFile(filePath, contentType)
+			{
+				this.data.fileName = path.basename(filePath);
+
+				self.contentType = contentType;
+
+				fs.readFile(filePath, this);
+			},
+			function sendFileBack(err, fileData)
+			{
+				if(err)
+					return cb(err);
+
+				const meta = {headers : {}};
+				meta.headers["Content-Length"] = fileData.length;
+				meta.headers["Content-Disposition"] = `attachment; filename="${this.data.fileName}"`;
+
+				cb(undefined, fileData, meta);
+			}
+		);
+	}
+
+	getContentType()
+	{
+		return this.contentType;
 	}
 }
 
@@ -57,7 +106,7 @@ class DustRoute
 		this.options = options;
 	}
 
-	render(request, cb)
+	render(request, fields, files, cb)
 	{
 		const self=this;
 
@@ -65,7 +114,7 @@ class DustRoute
 			function getDustData()
 			{
 				if(typeof self.dustData==="function")
-					self.dustData(this, request);
+					self.dustData(request, fields, files, this);
 				else
 					this(undefined, self.dustData);
 			},
@@ -89,6 +138,10 @@ class WebRouter
 	{
 		this.routes = {GET : {}, POST : {}, PUT : {}};
 		this.options = options;
+		this.uploadDir = options.uploadDir || fileUtil.generateTempFilePath();
+
+		if(!fileUtil.existsSync(this.uploadDir))
+			fs.mkdirSync(this.uploadDir);
 	}
 
 	requestHandler(request, response)
@@ -107,10 +160,6 @@ class WebRouter
 			return response.end();
 		}
 
-		request.cookieData = {};
-		if(request.headers && request.headers.cookie)
-			request.cookieData = cookie.parse(request.headers.cookie);
-
 		const responseHeaders =
 		{
 			"Date"          : new Date().toUTCString(),
@@ -120,109 +169,96 @@ class WebRouter
 		};
 
 		const route = this.routes[method][target.pathname];
-		responseHeaders["Content-Type"] = route.getContentType();
 
-		if(request.method==="POST" || request.method==="PUT")
-		{
-			let postData = "";
-			request.on("data", chunk => { postData += chunk; });
-			request.on("end", () =>
+		const form = new formidable.IncomingForm();
+		form.uploadDir = this.uploadDir;
+		form.keepExtensions = true;
+		form.maxFieldsSize = 50 * 1024 * 1024;
+
+		tiptoe(
+			function parseRequest()
 			{
-				if(this.options.parsePostDataAsJSON)
-				{
-					try
-					{
-						postData = JSON.parse(postData);
-					}
-					catch(err)
-					{
-						if(this.options.errorHandler && postData && postData.length>0)
-							this.options.errorHandler(new Error(util.format("[%s] JSON postData parse error with data (%s)", target.pathname, postData)), request);
+				form.parse(request, this);
+			},
+			function processRequest(fields, files)
+			{
+				request.cookieData = {};
+				if(request.headers && request.headers.cookie)
+					request.cookieData = cookie.parse(request.headers.cookie);
 
-						postData = {};
+				route.render(request, fields, files, this);
+			},
+			function compressIfNeeded(data, meta)
+			{
+				if(meta)
+				{
+					if(meta.cookies)
+					{
+						if(!responseHeaders.hasOwnProperty("Set-Cookie"))
+							responseHeaders["Set-Cookie"] = [];
+						meta.cookies.forEach(c => responseHeaders["Set-Cookie"].push(cookie.serialize(c.name, c.value, c)));
 					}
+
+					responseHeaders["Content-Type"] = route.getContentType();
+
+					if(meta.headers)
+						Object.merge(responseHeaders, meta.headers);
+				}
+				
+				if(data && data.length>0 && request.headers["accept-encoding"] && request.headers["accept-encoding"].split(",").some(encoding => encoding.trim().toLowerCase()==="gzip"))
+				{
+					responseHeaders["Content-Encoding"] = "gzip";
+					zlib.gzip(data, this);
+				}
+				else
+				{
+					this(undefined, data);
+				}
+			},
+			function issueResponse(err, data)
+			{
+				if(err)
+				{
+					console.error(err);
+					response.writeHead(500, { "Content-Type" : "text/plain" });
+					return response.end(err.stack || err.toString());
 				}
 
-				request.postData = postData;
-				setImmediate(finishRequest);
-			});
-		}
-		else
-		{
-			setImmediate(finishRequest);
-		}
-
-		function finishRequest()
-		{
-			tiptoe(
-				function render()
-				{
-					route.render(request, this);
-				},
-				function compressIfNeeded(data, meta)
-				{
-					if(meta)
-					{
-						if(meta.cookies)
-						{
-							if(!responseHeaders.hasOwnProperty("Set-Cookie"))
-								responseHeaders["Set-Cookie"] = [];
-							meta.cookies.forEach(c => responseHeaders["Set-Cookie"].push(cookie.serialize(c.name, c.value, c)));
-						}
-
-						// TODO: support meta.headers for adding/removing custom responseHeaders
-					}
-					
-					if(data && data.length>0 && request.headers["accept-encoding"] && request.headers["accept-encoding"].split(",").some(encoding => encoding.trim().toLowerCase()==="gzip"))
-					{
-						responseHeaders["Content-Encoding"] = "gzip";
-						zlib.gzip(data, this);
-					}
-					else
-					{
-						this(undefined, data);
-					}
-				},
-				function issueResponse(err, data)
-				{
-					if(err)
-					{
-						console.error(err);
-						response.writeHead(500, { "Content-Type" : "text/plain" });
-						return response.end(err.stack || err.toString());
-					}
-
-					response.writeHead(200, responseHeaders);
-					response.end(data);
-				}
-			);
-		}
+				response.writeHead(200, responseHeaders);
+				response.end(data);
+			}
+		);
 	}
 
-	addRoute(methods, paths, route)
+	addRoute(methods, routePaths, route)
 	{
-		Array.toArray(paths).forEach(path => Array.toArray(methods).forEach(method =>
+		Array.toArray(routePaths).forEach(routePath => Array.toArray(methods).forEach(method =>
 		{
 			if(!this.routes.hasOwnProperty(method.toUpperCase()))
 				return;
 
-			this.routes[method.toUpperCase()][path] = route;
+			this.routes[method.toUpperCase()][routePath] = route;
 		}));
 	}
 
-	addDustRoute(methods, paths, dustPath, dustName, dustData)
+	addDustRoute(methods, routePaths, dustPath, dustName, dustData)
 	{
-		this.addRoute(methods, paths, new DustRoute(dustPath, dustName, dustData, this.options));
+		this.addRoute(methods, routePaths, new DustRoute(dustPath, dustName, dustData, this.options));
 	}
 
-	addJSONRoute(methods, paths, handler)
+	addJSONRoute(methods, routePaths, handler)
 	{
-		this.addRoute(methods, paths, new JSONRoute(handler, this.options));
+		this.addRoute(methods, routePaths, new JSONRoute(handler, this.options));
 	}
 
-	addTextRoute(methods, paths, handler)
+	addTextRoute(methods, routePaths, handler)
 	{
-		this.addRoute(methods, paths, new TextRoute(handler, this.options));
+		this.addRoute(methods, routePaths, new TextRoute(handler, this.options));
+	}
+
+	addFileRoute(methods, routePaths, handler)
+	{
+		this.addRoute(methods, routePaths, new FileRoute(handler, this.options));
 	}
 
 	listen(port, host, timeout)
