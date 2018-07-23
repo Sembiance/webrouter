@@ -20,9 +20,9 @@ class TextRoute
 		this.options = options;
 	}
 
-	render(request, fields, files, cb)
+	render(req, cb)
 	{
-		this.handler(request, fields, files, cb);
+		this.handler(req, cb);
 	}
 
 	getContentType()
@@ -39,9 +39,9 @@ class JSONRoute
 		this.options = options;
 	}
 
-	render(request, fields, files, cb)
+	render(req, cb)
 	{
-		this.handler(request, fields, files, (err, data, meta) => cb(err, JSON.stringify(data), meta));
+		this.handler(req, (err, data, meta) => cb(err, JSON.stringify(data), meta));
 	}
 
 	getContentType()
@@ -59,14 +59,14 @@ class FileRoute
 		this.contentType = "application/unknown";
 	}
 
-	render(request, fields, files, cb)
+	render(req, cb)
 	{
 		const self = this;
 
 		tiptoe(
 			function callHandler()
 			{
-				self.handler(request, fields, files, this);
+				self.handler(req, this);
 			},
 			function loadFile(filePath, contentType)
 			{
@@ -106,7 +106,7 @@ class DustRoute
 		this.options = options;
 	}
 
-	render(request, fields, files, cb)
+	render(req, cb)
 	{
 		const self=this;
 
@@ -114,7 +114,7 @@ class DustRoute
 			function getDustData()
 			{
 				if(typeof self.dustData==="function")
-					self.dustData(request, fields, files, this);
+					self.dustData(req, this);
 				else
 					this(undefined, self.dustData);
 			},
@@ -144,20 +144,20 @@ class WebRouter
 			fs.mkdirSync(this.uploadDir);
 	}
 
-	requestHandler(request, response)
+	requestHandler(req, res)
 	{
-		const method = request.method.toUpperCase();
+		const method = req.method.toUpperCase();
 		if(!this.routes.hasOwnProperty(method))
 		{
-			response.writeHead(501, { "Content-Type" : "text/plain" });
-			return response.end("Method [" + request.method + "] is not supported.");
+			res.writeHead(501, { "Content-Type" : "text/plain" });
+			return res.end("Method [" + req.method + "] is not supported.");
 		}
 
-		const target = url.parse(request.url);
+		const target = url.parse(req.url);
 		if(!this.routes[method].hasOwnProperty(target.pathname))
 		{
-			response.writeHead(404, { "Content-Type" : "text/plain" });
-			return response.end();
+			res.writeHead(404, { "Content-Type" : "text/plain" });
+			return res.end();
 		}
 
 		const responseHeaders =
@@ -178,15 +178,18 @@ class WebRouter
 		tiptoe(
 			function parseRequest()
 			{
-				form.parse(request, this);
+				form.parse(req, this);
 			},
 			function processRequest(fields, files)
 			{
-				request.cookieData = {};
-				if(request.headers && request.headers.cookie)
-					request.cookieData = cookie.parse(request.headers.cookie);
+				req.cookieData = {};
+				if(req.headers && req.headers.cookie)
+					req.cookieData = cookie.parse(req.headers.cookie);
 
-				route.render(request, fields, files, this);
+				req.postData = fields;
+				req.files = files;
+
+				route.render(req, this);
 			},
 			function compressIfNeeded(data, meta)
 			{
@@ -205,7 +208,7 @@ class WebRouter
 						Object.merge(responseHeaders, meta.headers);
 				}
 				
-				if(data && data.length>0 && request.headers["accept-encoding"] && request.headers["accept-encoding"].split(",").some(encoding => encoding.trim().toLowerCase()==="gzip"))
+				if(data && data.length>0 && req.headers["accept-encoding"] && req.headers["accept-encoding"].split(",").some(encoding => encoding.trim().toLowerCase()==="gzip"))
 				{
 					responseHeaders["Content-Encoding"] = "gzip";
 					zlib.gzip(data, this);
@@ -220,12 +223,12 @@ class WebRouter
 				if(err)
 				{
 					console.error(err);
-					response.writeHead(500, { "Content-Type" : "text/plain" });
-					return response.end(err.stack || err.toString());
+					res.writeHead(500, { "Content-Type" : "text/plain" });
+					return res.end(err.stack || err.toString());
 				}
 
-				response.writeHead(200, responseHeaders);
-				response.end(data);
+				res.writeHead(200, responseHeaders);
+				res.end(data);
 			}
 		);
 	}
