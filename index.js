@@ -235,7 +235,7 @@ class WebRouter
 
 	addRoute(methods, routePaths, route)
 	{
-		Array.toArray(routePaths).forEach(routePath => Array.toArray(methods).forEach(method =>
+		(Array.isArray(routePaths) ? routePaths : [routePaths]).forEach(routePath => (Array.isArray(methods) ? methods : [methods]).forEach(method =>
 		{
 			if(!this.routes.hasOwnProperty(method.toUpperCase()))
 				return;
