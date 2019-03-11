@@ -1,6 +1,6 @@
 "use strict";
 
-const base = require("@sembiance/xbase"),
+const XU = require("@sembiance/xu"),
 	tiptoe = require("tiptoe"),
 	http = require("http"),
 	url = require("url"),

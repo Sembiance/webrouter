@@ -5,7 +5,7 @@
 	"description"			: "Simple module to serve up some HTTP requests",
 	"dependencies"			:
 	{
-		"@sembiance/xbase"	: "file:/mnt/compendium/DevLab/node-modules/xbase",
+		"@sembiance/xu"	: "file:/mnt/compendium/DevLab/node-modules/xu",
 		"@sembiance/xutil" 	: "file:/mnt/compendium/DevLab/node-modules/xutil",
 		"tiptoe"			: "file:/mnt/compendium/DevLab/node-modules/tiptoe",
 		"cookie"			: "~0.3.1",

@@ -1,6 +1,6 @@
 "use strict";
 
-const base = require("@sembiance/xbase"),
+const XU = require("@sembiance/xu"),
 	{ WebRouter } = require("./index.js");
 
 const router = new WebRouter({disableCache : true});
