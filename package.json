@@ -1,6 +1,6 @@
 {
 	"name"         : "@sembiance/webrouter",
-	"version"      : "3.0.2",
+	"version"      : "3.0.3",
 	"author"       : "Robert Schultz <robert@cosmicrealms.com>",
 	"description"  : "Simple module to serve up some HTTP requests",
 	"dependencies" :
