@@ -153,7 +153,9 @@ class WebRouter
 			return res.end("Method [" + req.method + "] is not supported.");
 		}
 
-		const target = url.parse(req.url);
+		const target = new url.URL(req.url, (this.port===443 ? "https://" : "http://") + this.host + ((this.port!==443 && this.port!==80) ? (":" + this.port) : "") + "/");
+		req.fullURL = target;
+
 		if(!this.routes[method].hasOwnProperty(target.pathname))
 		{
 			res.writeHead(404, { "Content-Type" : "text/plain" });
@@ -235,7 +237,7 @@ class WebRouter
 
 	addRoute(methods, routePaths, route)
 	{
-		(Array.isArray(routePaths) ? routePaths : [routePaths]).forEach(routePath => (Array.isArray(methods) ? methods : [methods]).forEach(method =>
+		Array.force(routePaths).forEach(routePath => Array.force(methods).forEach(method =>
 		{
 			if(!this.routes.hasOwnProperty(method.toUpperCase()))
 				return;
@@ -266,6 +268,9 @@ class WebRouter
 
 	listen(port, host, timeout)
 	{
+		this.host = host;
+		this.port = port;
+
 		this.server = http.createServer(this.requestHandler.bind(this));
 
 		if(typeof timeout!=="undefined")
