@@ -275,7 +275,7 @@ class WebRouter
 
 		if(typeof timeout!=="undefined")
 			this.server.timeout = timeout;
-		this.server.listen(port, host);
+		this.server.listen(port, host, 2048);
 	}
 }
 
