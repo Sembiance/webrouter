@@ -50,6 +50,25 @@ class JSONRoute
 	}
 }
 
+class BinaryRoute
+{
+	constructor(handler, options)
+	{
+		this.handler = handler;
+		this.options = options;
+	}
+
+	render(req, cb)
+	{
+		this.handler(req, (err, binaryData, contentType="image/png") => cb(err, binaryData, { headers : { "Content-Type" : contentType }}));
+	}
+
+	getContentType()
+	{
+		return "application/unknown";
+	}
+}
+
 class FileRoute
 {
 	constructor(handler, options)
@@ -264,6 +283,11 @@ class WebRouter
 	addFileRoute(methods, routePaths, handler)
 	{
 		this.addRoute(methods, routePaths, new FileRoute(handler, this.options));
+	}
+
+	addBinaryRoute(methods, routePaths, handler)
+	{
+		this.addRoute(methods, routePaths, new BinaryRoute(handler, this.options));
 	}
 
 	listen(port, host, timeout)
