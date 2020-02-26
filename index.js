@@ -223,11 +223,12 @@ class WebRouter
 						meta.cookies.forEach(c => responseHeaders["Set-Cookie"].push(cookie.serialize(c.name, c.value, c)));
 					}
 
-					responseHeaders["Content-Type"] = route.getContentType();
-
 					if(meta.headers)
-						Object.merge(responseHeaders, meta.headers);
+						Object.assign(responseHeaders, meta.headers);
 				}
+
+				if(!responseHeaders.hasOwnProperty("Content-Type"))
+					responseHeaders["Content-Type"] = route.getContentType();
 				
 				if(data && data.length>0 && req.headers["accept-encoding"] && req.headers["accept-encoding"].split(",").some(encoding => encoding.trim().toLowerCase()==="gzip"))
 				{
