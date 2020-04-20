@@ -175,7 +175,8 @@ class WebRouter
 		const target = new url.URL(req.url, (this.port===443 ? "https://" : "http://") + this.host + ((this.port!==443 && this.port!==80) ? (":" + this.port) : "") + "/");
 		req.fullURL = target;
 
-		if(!this.routes[method].hasOwnProperty(target.pathname))
+		const route = this.routes[method][target.pathname] || this.routes[method][Object.keys(this.routes[method]).find(routePath => routePath.endsWith("*") && target.pathname.startsWith(routePath.substring(0, routePath.length-1)))];
+		if(!route)
 		{
 			res.writeHead(404, { "Content-Type" : "text/plain" });
 			return res.end();
@@ -188,8 +189,6 @@ class WebRouter
 			"Vary"          : "Accept-Encoding",
 			"Expires"       : "Thu, 01 Jan 1970 00:00:01 GMT"
 		};
-
-		const route = this.routes[method][target.pathname];
 
 		const form = new formidable.IncomingForm();
 		form.uploadDir = this.uploadDir;
