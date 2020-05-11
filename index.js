@@ -3,7 +3,6 @@
 const XU = require("@sembiance/xu"),
 	tiptoe = require("tiptoe"),
 	http = require("http"),
-	url = require("url"),
 	fs = require("fs"),
 	path = require("path"),
 	cookie = require("cookie"),
@@ -172,7 +171,7 @@ class WebRouter
 			return res.end("Method [" + req.method + "] is not supported.");
 		}
 
-		const target = new url.URL(req.url, (this.port===443 ? "https://" : "http://") + this.host + ((this.port!==443 && this.port!==80) ? (":" + this.port) : "") + "/");
+		const target = new URL(req.url, (this.port===443 ? "https://" : "http://") + this.host + ((this.port!==443 && this.port!==80) ? (":" + this.port) : "") + "/");
 		req.fullURL = target;
 
 		const route = this.routes[method][target.pathname] || this.routes[method][Object.keys(this.routes[method]).find(routePath => routePath.endsWith("*") && target.pathname.startsWith(routePath.substring(0, routePath.length-1)))];
