@@ -1,5 +1,4 @@
 "use strict";
-
 const XU = require("@sembiance/xu"),
 	tiptoe = require("tiptoe"),
 	http = require("http"),
@@ -168,10 +167,10 @@ class WebRouter
 		if(!this.routes.hasOwnProperty(method))
 		{
 			res.writeHead(501, { "Content-Type" : "text/plain" });
-			return res.end("Method [" + req.method + "] is not supported.");
+			return res.end(`Method [${req.method}] is not supported.`);
 		}
 
-		const target = new URL(req.url, (this.port===443 ? "https://" : "http://") + this.host + ((this.port!==443 && this.port!==80) ? (":" + this.port) : "") + "/");
+		const target = new URL(req.url, `${(this.port===443 ? "https://" : "http://") + this.host + ((this.port!==443 && this.port!==80) ? (`:${this.port}`) : "")}/`);
 		req.fullURL = target;
 
 		const route = this.routes[method][target.pathname] || this.routes[method][Object.keys(this.routes[method]).find(routePath => routePath.endsWith("*") && target.pathname.startsWith(routePath.substring(0, routePath.length-1)))];
@@ -202,7 +201,7 @@ class WebRouter
 			function processRequest(fields, files)
 			{
 				req.cookieData = {};
-				if(req.headers && req.headers.cookie)
+				if(req.headers?.cookie)
 					req.cookieData = cookie.parse(req.headers.cookie);
 
 				req.postData = fields;
